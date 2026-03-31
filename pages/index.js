@@ -3,6 +3,7 @@ import Head from "next/head";
 
 // ─── CONFIG ─────────────────────────────────
 const PRICE_CARDS = [
+  { id: "dubai", icon: "🛢️", category: "crude", highlight: true, isDubai: true },
   { id: "wti", icon: "🇺🇸", category: "crude", highlight: true },
   { id: "brent", icon: "🇬🇧", category: "crude", highlight: true },
   { id: "usdkrw", icon: "💱", category: "fx", highlight: true },
@@ -12,15 +13,6 @@ const PRICE_CARDS = [
 ];
 
 const REFERENCE_CARDS = [
-  {
-    id: "dubai",
-    icon: "🛢️",
-    label: "두바이유 (현물)",
-    desc: "S&P Global Platts 유료 데이터",
-    link: "https://www.investing.com/commodities/dubai-crude-oil-platts-futures",
-    linkText: "Investing.com에서 확인",
-    category: "crude",
-  },
   {
     id: "mops",
     icon: "🏭",
@@ -104,9 +96,16 @@ function PriceCard({ config, data, catColor }) {
           </span>
         </div>
         {data.source && (
-          <span style={{ fontSize: 9.5, color: "#444", fontFamily: "'IBM Plex Mono', monospace" }}>
-            {data.source}
-          </span>
+          data.sourceUrl ? (
+            <a href={data.sourceUrl} target="_blank" rel="noopener noreferrer"
+              style={{ fontSize: 9.5, color: "#4ecdc4", fontFamily: "'IBM Plex Mono', monospace", textDecoration: "none" }}>
+              {data.source} ↗
+            </a>
+          ) : (
+            <span style={{ fontSize: 9.5, color: "#444", fontFamily: "'IBM Plex Mono', monospace" }}>
+              {data.source}
+            </span>
+          )
         )}
       </div>
 
@@ -250,17 +249,51 @@ export default function Dashboard() {
     setError(null);
 
     try {
-      const [pricesResp, newsResp] = await Promise.all([
+      const [pricesResp, newsResp, dubaiResp] = await Promise.all([
         fetch("/api/prices"),
         fetch("/api/news"),
+        fetch("/api/dubai"),
       ]);
+
+      const priceObj = {};
 
       if (pricesResp.ok) {
         const prices = await pricesResp.json();
-        setPriceData(prices.data);
+        Object.assign(priceObj, prices.data);
       } else {
         setError("가격 데이터를 가져오지 못했습니다");
       }
+
+      // Dubai data from Naver
+      if (dubaiResp.ok) {
+        const dubai = await dubaiResp.json();
+        if (dubai.status === "ok" && dubai.price) {
+          const changeStr = dubai.direction === "up"
+            ? `+${dubai.changePercent || dubai.change || ""}`
+            : dubai.direction === "down"
+            ? `-${dubai.changePercent || dubai.change || ""}`
+            : dubai.changePercent || "";
+          priceObj.dubai = {
+            price: parseFloat(dubai.price.replace(/,/g, "")) || dubai.price,
+            change: changeStr,
+            label: "두바이유 (현물)",
+            unit: "$/bbl",
+            source: "네이버 금융",
+            sourceUrl: dubai.sourceUrl,
+            date: dubai.date,
+            status: "ok",
+          };
+        } else {
+          priceObj.dubai = {
+            label: "두바이유 (현물)",
+            unit: "$/bbl",
+            status: "error",
+            error: "네이버 파싱 실패",
+          };
+        }
+      }
+
+      setPriceData(priceObj);
 
       if (newsResp.ok) {
         const news = await newsResp.json();
@@ -350,7 +383,7 @@ export default function Dashboard() {
                   원자재 시황 모니터
                 </h1>
                 <p style={{ fontSize: 11, color: "#555", fontFamily: "'IBM Plex Mono', monospace", marginTop: 1 }}>
-                  WTI · Brent · FX · Products · Free API (무료)
+                  WTI · Brent · Dubai · FX · Products · Free API (무료)
                 </p>
               </div>
             </div>
@@ -542,6 +575,8 @@ export default function Dashboard() {
             <strong style={{ color: "#666" }}>📌 데이터 출처</strong>
             <br />
             • WTI, 브렌트, 난방유, 천연가스, 달러인덱스: Yahoo Finance (무료, 실시간)
+            <br />
+            • 두바이유 (현물): 네이버 금융 시장지표 (무료)
             <br />
             • 환율 USD/KRW: Yahoo Finance + open.er-api.com (무료 백업)
             <br />
