@@ -264,18 +264,13 @@ export default function Dashboard() {
         setError("가격 데이터를 가져오지 못했습니다");
       }
 
-      // Dubai data from Naver / Investing.com
+      // Dubai data from Naver
       if (dubaiResp.ok) {
         const dubai = await dubaiResp.json();
         if (dubai.status === "ok" && dubai.price) {
-          const changeStr = dubai.direction === "up"
-            ? `+${dubai.changePercent || ""}`
-            : dubai.direction === "down"
-            ? `-${dubai.changePercent || ""}`
-            : dubai.changePercent || "";
           priceObj.dubai = {
-            price: parseFloat(String(dubai.price).replace(/,/g, "")) || dubai.price,
-            change: changeStr,
+            price: parseFloat(String(dubai.price)) || dubai.price,
+            change: dubai.change || "",
             label: "두바이유 (현물)",
             unit: "$/bbl",
             source: dubai.source || "네이버 금융",
@@ -283,12 +278,11 @@ export default function Dashboard() {
             status: "ok",
           };
         } else {
-          // 에러 시 Investing.com 링크 카드로 폴백
           priceObj.dubai = {
             label: "두바이유 (현물)",
             unit: "$/bbl",
             status: "error",
-            error: dubai.errors ? JSON.stringify(dubai.errors) : "파싱 실패",
+            error: dubai.error || "파싱 실패",
           };
         }
       }
