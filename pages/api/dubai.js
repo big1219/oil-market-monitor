@@ -1,4 +1,4 @@
-// pages/api/dubai.js — DEBUG v2: 여러 네이버 엔드포인트 시도
+// pages/api/dubai.js — DEBUG v3
 
 export default async function handler(req, res) {
   const results = {};
@@ -8,59 +8,63 @@ export default async function handler(req, res) {
     "Referer": "https://finance.naver.com/marketindex/",
   };
 
-  // 시도 1: 일별시세 테이블 (HTML에 가격 직접 포함)
+  // 1: 메인페이지에서 oilGoldList 전체 섹션 추출
   try {
-    const url = "https://finance.naver.com/marketindex/oilDailyQuote.naver?marketindexCd=OIL_DU&page=1";
-    const resp = await fetch(url, { headers });
+    const resp = await fetch("https://finance.naver.com/marketindex/", { headers });
     const html = await resp.text();
-    const prices = html.match(/\d{2,3}\.\d{2}/g);
-    const dates = html.match(/\d{4}\.\d{2}\.\d{2}/g);
-    const tds = html.match(/<td[^>]*>[\s\S]*?<\/td>/g);
-    results.dailyQuote = {
-      status: resp.status,
-      length: html.length,
-      prices: prices ? prices.slice(0, 15) : null,
-      dates: dates ? dates.slice(0, 5) : null,
-      first800: html.slice(0, 800),
-      tdCount: tds ? tds.length : 0,
-      firstTds: tds ? tds.slice(0, 8).map(t => t.slice(0, 100)) : null,
+    const oilSection = html.match(/oilGoldList[\s\S]{0,5000}?<\/ul>/);
+    // 모든 li 항목 추출
+    const lis = oilSection ? oilSection[0].match(/<li[\s\S]*?<\/li>/g) : null;
+    // 모든 value span 추출
+    const values = oilSection ? oilSection[0].match(/<span class="value">[^<]+<\/span>/g) : null;
+    // 모든 href 추출
+    const hrefs = oilSection ? oilSection[0].match(/href="[^"]+"/g) : null;
+    // 모든 blind span (이름)
+    const names = oilSection ? oilSection[0].match(/<span class="blind">[^<]+<\/span>/g) : null;
+
+    results.mainOilList = {
+      sectionLength: oilSection ? oilSection[0].length : 0,
+      liCount: lis ? lis.length : 0,
+      values,
+      hrefs,
+      names,
+      rawSection: oilSection ? oilSection[0].slice(0, 2000) : null,
     };
   } catch (err) {
-    results.dailyQuote = { error: err.message };
+    results.mainOilList = { error: err.message };
   }
 
-  // 시도 2: 세계유가 리스트
+  // 2: worldOilDetail 두바이유 페이지
   try {
-    const url = "https://finance.naver.com/marketindex/worldOilList.naver";
-    const resp = await fetch(url, { headers });
+    const resp = await fetch("https://finance.naver.com/marketindex/worldOilDetail.naver?marketindexCd=OIL_DU&fdtc=2", { headers });
     const html = await resp.text();
-    const duRegion = html.match(/OIL_DU[\s\S]{0,500}/i) || html.match(/두바이[\s\S]{0,500}/i);
     const prices = html.match(/\d{2,3}\.\d{2}/g);
-    results.worldOilList = {
+    const values = html.match(/<span class="value">[^<]+<\/span>/g);
+    const noToday = html.match(/no_today[\s\S]{0,500}/);
+    results.worldOilDetailDU = {
       status: resp.status,
       length: html.length,
-      duRegion: duRegion ? duRegion[0].slice(0, 400) : null,
-      prices: prices ? prices.slice(0, 15) : null,
+      prices: prices ? prices.slice(0, 10) : null,
+      values,
+      noToday: noToday ? noToday[0].slice(0, 400) : null,
+      first500: html.slice(0, 500),
     };
   } catch (err) {
-    results.worldOilList = { error: err.message };
+    results.worldOilDetailDU = { error: err.message };
   }
 
-  // 시도 3: 시장지표 메인에서 유가 섹션
+  // 3: oilDetail 두바이유 (기존 - 이건 동적 로딩이라 안됨을 확인)  
   try {
-    const url = "https://finance.naver.com/marketindex/";
-    const resp = await fetch(url, { headers });
+    const resp = await fetch("https://finance.naver.com/marketindex/oilDetail.naver?marketindexCd=OIL_DU", { headers });
     const html = await resp.text();
-    const oilSection = html.match(/oil[\s\S]{0,2000}/i);
-    const duSection = html.match(/OIL_DU[\s\S]{0,800}/i);
-    results.mainPage = {
+    const prices = html.match(/\d{2,3}\.\d{2}/g);
+    results.oilDetailDU = {
       status: resp.status,
       length: html.length,
-      oilSnippet: oilSection ? oilSection[0].slice(0, 500) : null,
-      duSnippet: duSection ? duSection[0].slice(0, 500) : null,
+      prices: prices ? prices.slice(0, 10) : null,
     };
   } catch (err) {
-    results.mainPage = { error: err.message };
+    results.oilDetailDU = { error: err.message };
   }
 
   return res.status(200).json({ debug: true, results });
