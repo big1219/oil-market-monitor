@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# 같은 브랜치에 연속으로 푸시하면 앞선 실행은 취소한다.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: next build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # next 14.2 는 Node >= 18.17 을 요구한다.
+          node-version: 20
+          cache: npm
+
+      # npm ci 는 package-lock.json 과 package.json 이 어긋나면 실패한다.
+      # 락파일 정합성 검사를 겸한다.
+      - run: npm ci
+
+      - run: npm run build
