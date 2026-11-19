@@ -14,6 +14,10 @@ const SITE = {
   description:
     "BTC 무기한 선물만 거래하는 알고리즘 트레이딩 시스템. 딥러닝이 진입 시점을 고르고, 레버리지·손절·청산 여유폭은 규칙 엔진이 고정합니다.",
   url: "https://deepquant.ai/",
+  // 절대 URL 이어야 한다. 크롤러는 상대 경로를 따라가지 않는다.
+  get ogImage() {
+    return this.url.replace(/\/$/, "") + "/deepquant-og.png";
+  },
 };
 
 const NAV = [
@@ -1352,7 +1356,15 @@ export default function DeepQuantPage() {
         <meta property="og:description" content={SITE.description} />
         <meta property="og:url" content={SITE.url} />
         <meta property="og:locale" content="ko_KR" />
+        <meta property="og:image" content={SITE.ogImage} />
+        <meta property="og:image:type" content="image/png" />
+        <meta property="og:image:width" content="1200" />
+        <meta property="og:image:height" content="630" />
+        <meta property="og:image:alt" content="DeepQuant AI — AI가 읽고, 알고리즘이 거래합니다." />
         <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content={SITE.title} />
+        <meta name="twitter:description" content={SITE.description} />
+        <meta name="twitter:image" content={SITE.ogImage} />
         <link rel="icon" type="image/svg+xml" href="/deepquant-icon.svg" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
